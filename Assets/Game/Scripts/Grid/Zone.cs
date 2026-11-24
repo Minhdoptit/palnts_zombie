@@ -71,8 +71,12 @@ public class Zone : MonoBehaviour
         {
             cell.ToggleHighlight(true); return;
         }
-        bool canPlace = GetFusionResult().HasValue;
-        cell.ToggleHighlight(canPlace);
+        var result = GetFusionResult();
+        bool canPlace = result.HasValue;
+        bool isFusion = canPlace && plantManager.CurrentPlantType.HasValue && result.Value != plantManager.CurrentPlantType.Value;
+        cell.ToggleHighlight(canPlace, isFusion);
+        if (isFusion)
+            cell.GetPlantInstance(result.Value.GetFieldType())?.VisualHandler?.FlashHit();
     }
 
     public void OnDragHoverExit()

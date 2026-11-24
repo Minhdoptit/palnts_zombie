@@ -40,6 +40,11 @@ public class FusionDatabase
             { new FusionKey(PlantType.MelonPult, PlantType.IceStorm), PlantType.WinterMelon },
             { new FusionKey(PlantType.Pumpkin, PlantType.Peashooter), PlantType.PeaVine },
 
+            // Cherry fusion chain
+            { new FusionKey(PlantType.Peashooter, PlantType.CherryBomb), PlantType.CherryPeashooter },
+            { new FusionKey(PlantType.CherryPeashooter, PlantType.Peashooter), PlantType.CherryRepeater },
+            { new FusionKey(PlantType.Repeater, PlantType.CherryBomb), PlantType.CherryRepeater },
+
             //test
             { new FusionKey(PlantType.GreenGourd, PlantType.GreenGourd), PlantType.XVine },
         };

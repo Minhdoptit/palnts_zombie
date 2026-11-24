@@ -32,6 +32,8 @@ public enum PlantType
     [PlantField(FieldType.Normal)] Exonut, //a26
     [PlantField(FieldType.Normal)] Erudrion, 
     [PlantField(FieldType.Support)] PeaVine, //a28
+    [PlantField(FieldType.Normal)] CherryPeashooter,
+    [PlantField(FieldType.Normal)] CherryRepeater,
 
     [PlantField(FieldType.Support)] GreenGourd, //test
     [PlantField(FieldType.Support)] XVine, //test

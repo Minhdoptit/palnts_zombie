@@ -25,6 +25,17 @@ public abstract class ProjectileBase : MonoBehaviour, IPoolable
 
     public bool HasEffect { get; private set; }
 
+    public void ConfigureRuntime(PoolKey key, ProjectileData runtimeData, PoolKey customSplatKey)
+    {
+        projectileKey = key;
+        if (runtimeData != null)
+        {
+            data = runtimeData;
+            HasEffect = data.hasEffect;
+        }
+        splatKey = customSplatKey;
+    }
+
     protected IEffect onHitEffect;
     protected Cell spawnCell;
     private GameObject shadow;
@@ -33,13 +44,40 @@ public abstract class ProjectileBase : MonoBehaviour, IPoolable
 
     private const float shadowOffsetY = -0.4f;
 
+    public void CopyBaseConfigFrom(ProjectileBase source)
+    {
+        if (source == null) return;
+        onProjectileHit = source.onProjectileHit;
+        normalType = source.normalType;
+        data = source.data;
+        projectileKey = source.projectileKey;
+        meshRenderer = source.meshRenderer;
+        sprites = source.sprites;
+        splatKey = source.splatKey;
+        spawnOffset = source.spawnOffset;
+    }
+
+    public void TintSprites(Color color)
+    {
+        if (sprites == null) return;
+        foreach (var s in sprites)
+        {
+            if (s.spriteRenderer != null)
+                s.spriteRenderer.color = color;
+        }
+    }
+
     protected virtual void Awake()
     {
         isSpineRender = meshRenderer != null;
-        HasEffect = data.hasEffect;
+        HasEffect = data != null && data.hasEffect;
 
-        shadow = transform.Find("Shadow").gameObject;
-        shadow.GetComponent<SpriteRenderer>().sortingOrder = SortingOrderUtility.GetSortingOrder(LayerType.Shadow);
+        var shadowTf = transform.Find("Shadow");
+        if (shadowTf != null)
+        {
+            shadow = shadowTf.gameObject;
+            shadow.GetComponent<SpriteRenderer>().sortingOrder = SortingOrderUtility.GetSortingOrder(LayerType.Shadow);
+        }
     }
 
     public virtual void OnSpawn() => isReturned = false;
@@ -62,9 +100,12 @@ public abstract class ProjectileBase : MonoBehaviour, IPoolable
             return;
         }
 
-        if (sprites.Length <= 0) return;
+        if (sprites == null || sprites.Length <= 0) return;
         foreach (var s in sprites)
         {
+            if (s.spriteRenderer == null) continue;
+            if (s.spriteRenderer.sprite == null)
+                s.spriteRenderer.sprite = RuntimeVisualLibrary.GetProjectileSprite(projectileKey);
             s.spriteRenderer.sortingOrder = sortingOrder + s.sortingBonus;
         }
     }
@@ -95,8 +136,10 @@ public abstract class ProjectileBase : MonoBehaviour, IPoolable
 
     private void OnImpact()
     {
+        if (spawnCell == null) return;
         var splat = PoolManager.Instance.Get<SplatProjectile>(splatKey, transform.position + spawnOffset, Quaternion.identity);
-        splat.Init(SortingOrderUtility.GetSortingOrder(LayerType.Splat, spawnCell.Row));
+        if (splat != null)
+            splat.Init(SortingOrderUtility.GetSortingOrder(LayerType.Splat, spawnCell.Row));
     }
 
 }

@@ -31,7 +31,10 @@ public class SplatProjectile : MonoBehaviour, IPoolable
     public void Init(int sortingOrder)
     {
         meshRenderer.sortingOrder = sortingOrder;
-        skeletonAnim.AnimationState.SetAnimation(0, AnimEvents.ANIM_ANIMATION, false);
+        string animName = skeletonAnim.Skeleton.Data.FindAnimation(AnimEvents.ANIM_ANIMATION) != null
+            ? AnimEvents.ANIM_ANIMATION
+            : AnimEvents.ANIM_IDLE;
+        skeletonAnim.AnimationState.SetAnimation(0, animName, false);
     }
 
     public void OnDespawn() { }

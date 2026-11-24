@@ -9,21 +9,31 @@ public class Peashooter : PlantBase
 
     [Header("Attack")]
     [SerializeField] protected PoolKey projectileKey;
-    [SerializeField] private Transform attackPoint;
+    [SerializeField] protected Transform attackPoint;
 
     [Header("Animations")]
-    [SerializeField] private int loopCount = 1;
+    [SerializeField] protected int loopCount = 1;
 
     private int currentLoop;
     private string pendingAnim = null;
 
-    private void OnEnable()
+    public void CopyBaseConfigFrom(Peashooter source)
+    {
+        if (source == null) return;
+        onPlantAttack = source.onPlantAttack;
+        attackType = source.attackType;
+        projectileKey = source.projectileKey;
+        attackPoint = source.attackPoint;
+        loopCount = source.loopCount;
+    }
+
+    protected virtual void OnEnable()
     {
         skeletonAnim.AnimationState.Event += OnSpineEvent;
         skeletonAnim.AnimationState.Complete += OnSpineComplete;
     }
 
-    private void OnDisable()
+    protected virtual void OnDisable()
     {
         skeletonAnim.AnimationState.Event -= OnSpineEvent;
         skeletonAnim.AnimationState.Complete -= OnSpineComplete;
@@ -91,10 +101,19 @@ public class Peashooter : PlantBase
     {
         if (e.Data.Name == AnimEvents.EVENT_ATTACK)
         {
-            onPlantAttack.Raise(attackType);
-            var pea = PoolManager.Instance.Get<PeaProjectile>(projectileKey, attackPoint.position, Quaternion.identity);
-            var effect = pea.HasEffect ? Data.CreateOnHitEffect() : null;
-            pea.Init(Vector3.right, OccupiedCell, effect);
+            FireProjectile();
         }
+    }
+
+    protected virtual void FireProjectile()
+    {
+        if (IsGhost || OccupiedCell == null) return;
+        VisualHandler?.PlayAttackRecoil();
+        onPlantAttack?.Raise(attackType);
+        Vector3 spawnPos = attackPoint != null ? attackPoint.position : transform.position + new Vector3(0.4f, 0.3f, 0f);
+        var pea = PoolManager.Instance.Get<PeaProjectile>(projectileKey, spawnPos, Quaternion.identity);
+        if (pea == null) return;
+        var effect = pea.HasEffect ? Data.CreateOnHitEffect() : null;
+        pea.Init(Vector3.right, OccupiedCell, effect);
     }
 }

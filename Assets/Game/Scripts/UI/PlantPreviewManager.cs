@@ -39,7 +39,7 @@ public class PlantPreviewManager : Singleton<PlantPreviewManager>
         currentKey = key;
         currentPlant = PoolManager.Instance.Get<PlantBase>(key, spawnPoint.position, Quaternion.identity);
 
-        currentPlant.OnDisplay();
+        currentPlant.OnDisplay(data != null ? data.plantType : (PlantType?)null);
 
         if (plantName != null) plantName.text = data.plantName;
         if (plantDescription != null) plantDescription.text = data.description;

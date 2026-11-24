@@ -9,6 +9,7 @@ public abstract class PlantBase : MonoBehaviour, IPoolable
 
     public PlantData Data { get; private set; }
     public PoolKey PlantKey => plantKey;
+    public void SetPlantKey(PoolKey key) => plantKey = key;
     public PlantType PlantType => Data.plantType;
     public int CurrentHP { get; private set; }
     public bool IsActivated { get; private set; }
@@ -43,7 +44,7 @@ public abstract class PlantBase : MonoBehaviour, IPoolable
         IsGhost = true;
         enabled = false;
 
-        VisualHandler.SetGhostVisual();
+        VisualHandler.SetGhostVisual(Data != null ? Data.plantType : (PlantType?)null);
 
         if (cell == null) return;
         transform.position = cell.transform.position;
@@ -92,11 +93,12 @@ public abstract class PlantBase : MonoBehaviour, IPoolable
         ReturnPool();
     }
 
-    public void OnDisplay()
+    public void OnDisplay(PlantType? plantType = null)
     {
         IsGhost = true;
-        VisualHandler.SetDisplayVisual();
-        skeletonAnim.AnimationState.SetAnimation(0, AnimEvents.ANIM_IDLE, true);
+        VisualHandler.SetDisplayVisual(plantType ?? (Data != null ? Data.plantType : (PlantType?)null));
+        if (skeletonAnim != null && skeletonAnim.AnimationState != null)
+            skeletonAnim.AnimationState.SetAnimation(0, AnimEvents.ANIM_IDLE, true);
     }
 
     private void ReturnPool()

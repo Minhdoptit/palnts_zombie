@@ -29,12 +29,17 @@ public class PeaProjectile : ProjectileBase
         var zombie = other.GetComponent<ZombieBase>();
         if (zombie == null || zombie.IsDead || zombie.CellTracker.Row != spawnCell.Row) return;
 
+        OnHitZombie(zombie);
+
+        PlayHitSound(zombie);
+        ReturnPool();
+    }
+
+    protected virtual void OnHitZombie(ZombieBase zombie)
+    {
         if (onHitEffect != null)
             zombie.EffectController.ApplyEffect(onHitEffect);
 
         zombie.TakeDamage(data.damage, data.damageSource);
-
-        PlayHitSound(zombie);
-        ReturnPool();
     }
 }

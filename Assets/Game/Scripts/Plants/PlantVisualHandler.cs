@@ -1,3 +1,4 @@
+using DG.Tweening;
 using Spine.Unity;
 using System.Collections;
 using UnityEngine;
@@ -6,8 +7,14 @@ public class PlantVisualHandler : MonoBehaviour
 {
     private SkeletonAnimation skeletonAnim;
     private MeshRenderer meshRenderer;
+    private SpriteRenderer customSpriteRenderer;
     private Material glowMaterial;
     private GameObject shadow;
+    private Vector3 baseScale;
+    private Tween fusionTween;
+    private Tween idleBobTween;
+    private Tween recoilTween;
+    private bool usingCustomSprite;
 
     private Coroutine flashCoroutine;
     private const float flashDuration = 0.09f;
@@ -17,20 +24,63 @@ public class PlantVisualHandler : MonoBehaviour
 
     private void Awake()
     {
+        baseScale = transform.localScale;
         skeletonAnim = GetComponent<SkeletonAnimation>();
-        meshRenderer = skeletonAnim.GetComponent<MeshRenderer>();
-        shadow = transform.Find("Shadow").gameObject;
-        if (shadow == null)
+        meshRenderer = skeletonAnim != null ? skeletonAnim.GetComponent<MeshRenderer>() : null;
+        var shadowTf = transform.Find("Shadow");
+        if (shadowTf != null)
+        {
+            shadow = shadowTf.gameObject;
+            shadow.GetComponent<SpriteRenderer>().sortingOrder = SortingOrderUtility.GetSortingOrder(LayerType.Shadow);
+        }
+        else
         {
             Debug.LogWarning($"[PlantBase] Not found Shadow Object!");
         }
-        shadow.GetComponent<SpriteRenderer>().sortingOrder = SortingOrderUtility.GetSortingOrder(LayerType.Shadow);
+    }
+
+    private void EnsureCustomSpriteRenderer()
+    {
+        if (customSpriteRenderer != null) return;
+
+        var child = new GameObject("CustomPlantSprite");
+        child.transform.SetParent(transform, false);
+        child.transform.localPosition = new Vector3(0f, -0.35f, 0f);
+        child.transform.localScale = Vector3.one;
+        customSpriteRenderer = child.AddComponent<SpriteRenderer>();
+        customSpriteRenderer.enabled = false;
+    }
+
+    private bool ApplyCustomSpriteIfAvailable(PlantType? plantType, int sortingOrder)
+    {
+        Sprite customSprite = plantType.HasValue ? RuntimeVisualLibrary.GetPlantSprite(plantType.Value) : null;
+        if (customSprite != null)
+        {
+            EnsureCustomSpriteRenderer();
+            usingCustomSprite = true;
+            if (meshRenderer != null) meshRenderer.enabled = false;
+            customSpriteRenderer.sprite = customSprite;
+            customSpriteRenderer.color = Color.white;
+            customSpriteRenderer.sortingOrder = sortingOrder;
+            customSpriteRenderer.enabled = true;
+            return true;
+        }
+
+        usingCustomSprite = false;
+        if (meshRenderer != null)
+        {
+            meshRenderer.enabled = true;
+            meshRenderer.sortingOrder = sortingOrder;
+        }
+        if (customSpriteRenderer != null)
+            customSpriteRenderer.enabled = false;
+        return false;
     }
 
     private void EnsureGlowMaterial()
     {
         if (glowMaterial != null) return;
-        if (meshRenderer == null) return;
+        if (meshRenderer == null || skeletonAnim == null) return;
 
         var originalMaterial = meshRenderer.sharedMaterial;
         if (originalMaterial == null) return;
@@ -41,12 +91,54 @@ public class PlantVisualHandler : MonoBehaviour
 
     public void FlashHit()
     {
+        if (!gameObject.activeInHierarchy) return;
         if (flashCoroutine != null) StopCoroutine(flashCoroutine);
         flashCoroutine = StartCoroutine(FlashRoutine());
     }
 
+    public void PlayFusionFeedback()
+    {
+        FlashHit();
+        fusionTween?.Kill();
+        idleBobTween?.Kill();
+        transform.localScale = baseScale * 0.7f;
+        fusionTween = transform.DOScale(baseScale, 0.28f)
+            .SetEase(Ease.OutBack)
+            .OnComplete(StartIdleBobIfCustom);
+    }
+
+    public void PlayAttackRecoil()
+    {
+        if (!usingCustomSprite || customSpriteRenderer == null) return;
+        recoilTween?.Kill();
+        customSpriteRenderer.transform.localScale = new Vector3(1.16f, 0.88f, 1f);
+        recoilTween = customSpriteRenderer.transform.DOScale(Vector3.one, 0.16f).SetEase(Ease.OutBack);
+    }
+
+    private void StartIdleBobIfCustom()
+    {
+        idleBobTween?.Kill();
+        if (!usingCustomSprite || customSpriteRenderer == null) return;
+        customSpriteRenderer.transform.localScale = Vector3.one;
+        idleBobTween = customSpriteRenderer.transform
+            .DOScale(new Vector3(1.04f, 0.96f, 1f), 0.55f)
+            .SetEase(Ease.InOutSine)
+            .SetLoops(-1, LoopType.Yoyo);
+    }
+
     private IEnumerator FlashRoutine()
     {
+        if (usingCustomSprite && customSpriteRenderer != null)
+        {
+            var prev = customSpriteRenderer.color;
+            customSpriteRenderer.color = new Color(1f, 0.95f, 0.55f, prev.a);
+            yield return new WaitForSeconds(flashDuration);
+            if (customSpriteRenderer != null)
+                customSpriteRenderer.color = new Color(1f, 1f, 1f, prev.a);
+            flashCoroutine = null;
+            yield break;
+        }
+
         EnsureGlowMaterial();
         if (glowMaterial == null) yield break;
 
@@ -64,32 +156,48 @@ public class PlantVisualHandler : MonoBehaviour
         glowMaterial.SetFloat(PropGlowIntensity, 0f);
     }
 
-    public void SetGhostVisual()
+    public void SetGhostVisual(PlantType? plantType = null)
     {
-        shadow.SetActive(false);
-        meshRenderer.sortingOrder = SortingOrderUtility.GetSortingOrder(LayerType.GhostPlant);
+        if (shadow != null) shadow.SetActive(false);
+        int order = SortingOrderUtility.GetSortingOrder(LayerType.GhostPlant);
+        idleBobTween?.Kill();
+        ApplyCustomSpriteIfAvailable(plantType, order);
         SetAlpha(0.7f);
     }
 
     public void SetRealVisual(PlantType plantType, int row)
     {
-        shadow.SetActive(true);
+        if (shadow != null) shadow.SetActive(true);
         var layerSorting = plantType.GetFieldType() == FieldType.Normal
                          ? LayerType.NormalPlant : LayerType.SupportPlant;
-        meshRenderer.sortingOrder = SortingOrderUtility.GetSortingOrder(layerSorting, row);
-        ApplyPlantTint(plantType);
+        int order = SortingOrderUtility.GetSortingOrder(layerSorting, row);
+        if (!ApplyCustomSpriteIfAvailable(plantType, order))
+            ApplyPlantTint(plantType);
+        else
+            StartIdleBobIfCustom();
         SetAlpha(1f);
     }
 
-    public void SetDisplayVisual()
+    public void SetDisplayVisual(PlantType? plantType = null)
     {
-        shadow.SetActive(false);
-        meshRenderer.sortingOrder = SortingOrderUtility.GetSortingOrder(LayerType.DisplayPlant);
+        if (shadow != null) shadow.SetActive(false);
+        int order = SortingOrderUtility.GetSortingOrder(LayerType.DisplayPlant);
+        idleBobTween?.Kill();
+        if (!ApplyCustomSpriteIfAvailable(plantType, order) && plantType.HasValue)
+            ApplyPlantTint(plantType.Value);
         SetAlpha(1f);
     }
 
     public void SetAlpha(float alpha)
     {
+        if (usingCustomSprite && customSpriteRenderer != null)
+        {
+            var c = customSpriteRenderer.color;
+            c.a = alpha;
+            customSpriteRenderer.color = c;
+            return;
+        }
+
         if (skeletonAnim == null || skeletonAnim.Skeleton == null) return;
         var color = skeletonAnim.Skeleton.GetColor();
         color.a = alpha;
@@ -124,6 +232,8 @@ public class PlantVisualHandler : MonoBehaviour
             PlantType.PepperPult => new Color(1f, 0.4f, 0.25f, 1f),
             PlantType.Pumpkin => new Color(1f, 0.6f, 0.15f, 1f),
             PlantType.PeaVine => new Color(0.55f, 1f, 0.7f, 1f),
+            PlantType.CherryPeashooter => new Color(1f, 0.28f, 0.32f, 1f),
+            PlantType.CherryRepeater => new Color(0.92f, 0.12f, 0.22f, 1f),
             _ => new Color(0.85f, 0.85f, 0.95f, 1f)
         };
         skeletonAnim.Skeleton.SetColor(tint);
@@ -131,6 +241,18 @@ public class PlantVisualHandler : MonoBehaviour
 
     public void ResetAll()
     {
+        fusionTween?.Kill();
+        idleBobTween?.Kill();
+        recoilTween?.Kill();
+        transform.localScale = baseScale;
+        if (customSpriteRenderer != null)
+        {
+            customSpriteRenderer.transform.localScale = Vector3.one;
+            customSpriteRenderer.color = Color.white;
+            customSpriteRenderer.enabled = false;
+        }
+        usingCustomSprite = false;
+        if (meshRenderer != null) meshRenderer.enabled = true;
         ResetGlow();
         if (skeletonAnim != null && skeletonAnim.Skeleton != null)
             skeletonAnim.Skeleton.SetColor(Color.white);

@@ -47,6 +47,71 @@ public class PoolManager : Singleton<PoolManager>
         foreach (var e in sunEntries) AddPool(e);
         foreach (var e in zombieEntries) ZombieAddPool(e);
         foreach (var e in vfxEntries) ZombieAddPool(e);
+
+        RegisterCherryFusionRuntimePools();
+    }
+
+    private void RegisterCherryFusionRuntimePools()
+    {
+        if (!pools.ContainsKey(PoolKey.CherryPeaProjectile))
+        {
+            var baseProjPrefab = FindPrefab(projectileEntries, PoolKey.PeaProjectile);
+            if (baseProjPrefab != null)
+            {
+                var template = Instantiate(baseProjPrefab, transform);
+                template.name = "RuntimeTemplate_CherryPeaProjectile";
+                template.SetActive(false);
+
+                var oldPea = template.GetComponent<PeaProjectile>();
+                var cherryProj = template.AddComponent<CherryPeaProjectile>();
+                cherryProj.CopyBaseConfigFrom(oldPea);
+
+                var runtimeData = ScriptableObject.CreateInstance<ProjectileData>();
+                runtimeData.damageSource = DamageSource.Burn;
+                runtimeData.damage = 40;
+                runtimeData.aoeDamage = 30;
+                runtimeData.rangeRow = 1;
+                runtimeData.linearSpeed = 8f;
+                runtimeData.hasEffect = true;
+
+                cherryProj.ConfigureRuntime(PoolKey.CherryPeaProjectile, runtimeData, PoolKey.SplatFirepea);
+                if (oldPea != null) DestroyImmediate(oldPea);
+
+                pools[PoolKey.CherryPeaProjectile] = new ObjectPool<MonoBehaviour>(template, transform, 0);
+            }
+        }
+
+        RegisterCherryShooterPool(PoolKey.CherryPeashooter, "RuntimeTemplate_CherryPeashooter", 1, 0.14f);
+        RegisterCherryShooterPool(PoolKey.CherryRepeater, "RuntimeTemplate_CherryRepeater", 2, 0.16f);
+    }
+
+    private void RegisterCherryShooterPool(PoolKey key, string templateName, int shotsPerBurst, float burstInterval)
+    {
+        if (pools.ContainsKey(key)) return;
+
+        var basePlantPrefab = FindPrefab(plantEntries, PoolKey.Peashooter);
+        if (basePlantPrefab == null) return;
+
+        var template = Instantiate(basePlantPrefab, transform);
+        template.name = templateName;
+        template.SetActive(false);
+
+        var oldShooter = template.GetComponent<Peashooter>();
+        var cherryShooter = template.AddComponent<CherryPeashooter>();
+        cherryShooter.CopyBaseConfigFrom(oldShooter);
+        cherryShooter.SetPlantKey(key);
+        cherryShooter.ConfigureCherry(shotsPerBurst, burstInterval, PoolKey.CherryPeaProjectile);
+        if (oldShooter != null) DestroyImmediate(oldShooter);
+
+        pools[key] = new ObjectPool<MonoBehaviour>(template, transform, 0);
+    }
+
+    private static GameObject FindPrefab(PoolEntry[] entries, PoolKey key)
+    {
+        if (entries == null) return null;
+        foreach (var e in entries)
+            if (e.key == key && e.prefab != null) return e.prefab;
+        return null;
     }
 
     private void RegisterSpineFallback()
@@ -106,9 +171,12 @@ public class PoolManager : Singleton<PoolManager>
     }
 
     public T Get<T>(PoolKey key, Vector3 position, Quaternion rotation) where T : MonoBehaviour
-        => pools.TryGetValue(key, out var pool)
-            ? pool.Get(position, rotation) as T
-            : null;
+    {
+        if (!pools.TryGetValue(key, out var pool)) return null;
+        var obj = pool.Get(position, rotation);
+        if (obj == null) return null;
+        return obj as T ?? obj.GetComponent<T>();
+    }
 
     public void Release<T>(PoolKey key, T obj) where T : MonoBehaviour
     {
@@ -117,9 +185,12 @@ public class PoolManager : Singleton<PoolManager>
     }
 
     public T GetZombie<T>(ZombiePoolKey key, Vector3 position, Quaternion rotation) where T : MonoBehaviour
-        => zombiePools.TryGetValue(key, out var pool)
-            ? pool.Get(position, rotation) as T
-            : null;
+    {
+        if (!zombiePools.TryGetValue(key, out var pool)) return null;
+        var obj = pool.Get(position, rotation);
+        if (obj == null) return null;
+        return obj as T ?? obj.GetComponent<T>();
+    }
 
     public void ReleaseZombie<T>(ZombiePoolKey key, T obj) where T : MonoBehaviour
     {
@@ -141,6 +212,7 @@ public enum PoolKey
     MelonProjectile = 7,
     WintermelonProjectile = 8,
     PepperProjectile = 9,
+    CherryPeaProjectile = 10,
 
     //Splat VFX
     SplatPea = 100,
@@ -183,6 +255,8 @@ public enum PoolKey
     ExoNut = 225,
     Edurion = 226,
     PeaVine = 227,
+    CherryPeashooter = 228,
+    CherryRepeater = 229,
 
     //Plant Effect
     CherryBombTop = 300,

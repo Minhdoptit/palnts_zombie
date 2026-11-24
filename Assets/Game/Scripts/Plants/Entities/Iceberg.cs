@@ -22,11 +22,23 @@ public class Iceberg : PlantBase
     private void OnEnable()
     {
         skeletonAnim.AnimationState.Event += OnSpineEvent;
+        skeletonAnim.AnimationState.Complete += OnSpineComplete;
     }
 
     private void OnDisable()
     {
         skeletonAnim.AnimationState.Event -= OnSpineEvent;
+        skeletonAnim.AnimationState.Complete -= OnSpineComplete;
+    }
+
+    private void OnSpineComplete(TrackEntry trackEntry)
+    {
+        if (!isAttacking) return;
+        if (trackEntry.Animation.Name == AnimEvents.ANIM_ATTACK
+            && skeletonAnim.Skeleton.Data.FindEvent(AnimEvents.EVENT_DIE) == null)
+        {
+            Die();
+        }
     }
 
     protected override void OnPlaced()

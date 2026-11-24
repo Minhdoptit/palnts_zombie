@@ -36,6 +36,50 @@ public class PlantManager : Singleton<PlantManager>
             dataLookup[entry.data.plantType] = entry.data;
             dataList.Add(entry.data);
         }
+
+        RegisterRuntimeCherryPlant(
+            PlantType.CherryPeashooter,
+            PoolKey.CherryPeashooter,
+            "Cherry Peashooter",
+            250,
+            300,
+            "Fusion: Peashooter + Cherry Bomb. Fires explosive cherry peas that deal AoE burn damage.");
+
+        RegisterRuntimeCherryPlant(
+            PlantType.CherryRepeater,
+            PoolKey.CherryRepeater,
+            "Cherry Repeater",
+            350,
+            350,
+            "Fusion: Cherry Peashooter + Peashooter (or Repeater + Cherry Bomb). Fires a double burst of explosive cherry peas.");
+    }
+
+    private void RegisterRuntimeCherryPlant(PlantType plantType, PoolKey poolKey, string plantName, int sunCost, int maxHP, string description)
+    {
+        if (plantKeyLookup.ContainsKey(plantType) && dataLookup.ContainsKey(plantType)) return;
+
+        var data = ScriptableObject.CreateInstance<PlantData>();
+        data.name = plantName;
+        data.plantName = plantName;
+        data.plantType = plantType;
+        data.tier = 2;
+        data.maxHP = maxHP;
+        data.sunCost = sunCost;
+        data.description = description;
+        data.effectHitType = EffectHitType.Burn;
+        data.damageSource = DamageSource.Burn;
+        data.rangeRow = 1;
+        data.aoeDamage = 30;
+
+        var customCardSprite = RuntimeVisualLibrary.GetPlantSprite(plantType);
+        if (customCardSprite != null)
+            data.cardSprite = customCardSprite;
+        else if (dataLookup.TryGetValue(PlantType.CherryBomb, out var cherryData))
+            data.cardSprite = cherryData.cardSprite;
+
+        plantKeyLookup[plantType] = poolKey;
+        dataLookup[plantType] = data;
+        dataList.Add(data);
     }
 
     public void OnCardClicked(PlantType plantType)
@@ -69,7 +113,7 @@ public class PlantManager : Singleton<PlantManager>
         {
             if (isFusion)
             {
-                PlantActivator.Instance.Activate(ctx.PlantType, cell);
+                TriggerFusionIngredientEffects(ctx.PlantType, cell, result.GetFieldType());
                 PoolManager.Instance.Release(ctx.Plant.PlantKey, ctx.Plant);
                 DestroyPlantAt(cell, result.GetFieldType());
             }
@@ -80,14 +124,15 @@ public class PlantManager : Singleton<PlantManager>
         {
             if (isFusion)
             {
-                PlantActivator.Instance.Activate(ctx.PlantType, cell);
+                TriggerFusionIngredientEffects(ctx.PlantType, cell, result.GetFieldType());
                 DestroyPlantAt(cell, result.GetFieldType());
             }
 
             var card = BattleStarter.Instance.GetCard(dragContext.PlantType);
             card?.TriggerCooldown();
 
-            onSunCollected?.Raise(-card.Cost);
+            if (card != null)
+                onSunCollected?.Raise(-card.Cost);
         }
 
         PlantBase plantToPlace;
@@ -101,6 +146,7 @@ public class PlantManager : Singleton<PlantManager>
         {
             if (!plantKeyLookup.TryGetValue(result, out var key)) return;
             plantToPlace = PoolManager.Instance.Get<PlantBase>(key, transform.position, Quaternion.identity);
+            if (plantToPlace == null) return;
             plantToPlace.Init(dataLookup[result]);
         }
 
@@ -108,7 +154,18 @@ public class PlantManager : Singleton<PlantManager>
         plantToPlace.SetupAsReal(cell, result.GetFieldType(), isMoved);
         cell.SetPlant(result.GetFieldType(), result, plantToPlace);
 
+        if (isFusion)
+            plantToPlace.VisualHandler?.PlayFusionFeedback();
+
         EndDrag();
+    }
+
+    private void TriggerFusionIngredientEffects(PlantType incomingType, Cell cell, FieldType resultFieldType)
+    {
+        PlantActivator.Instance?.Activate(incomingType, cell);
+        var existingPlant = cell.GetPlantInstance(resultFieldType);
+        if (existingPlant != null && existingPlant.PlantType != incomingType)
+            PlantActivator.Instance?.Activate(existingPlant.PlantType, cell);
     }
 
     public void EndDrag()
@@ -122,8 +179,10 @@ public class PlantManager : Singleton<PlantManager>
     public void DestroyPlantAt(Cell cell, FieldType fieldType)
     {
         var oldPlant = cell.GetPlantInstance(fieldType);
+        if (oldPlant == null) return;
+        FieldType actualField = oldPlant.OccupiedFieldType;
         PoolManager.Instance.Release(oldPlant.PlantKey, oldPlant);
-        cell.ClearPlant(fieldType);
+        cell.ClearPlant(actualField);
     }
 
     public void ToggleGhostPlantVisual(bool show)
@@ -135,6 +194,9 @@ public class PlantManager : Singleton<PlantManager>
     {
         if (!plantKeyLookup.TryGetValue(plantType, out var key)) return;
         ghostPlant = PoolManager.Instance.Get<PlantBase>(key, transform.position, Quaternion.identity);
+        if (ghostPlant == null) return;
+        if (dataLookup.TryGetValue(plantType, out var data))
+            ghostPlant.Init(data);
         ghostPlant.SetupAsGhost(cell, plantType.GetFieldType());
     }
 

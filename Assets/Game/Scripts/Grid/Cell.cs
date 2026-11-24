@@ -90,9 +90,19 @@ public class Cell : MonoBehaviour
         return null;
     }
 
-    public void ToggleHighlight(bool show)
+    private Color defaultHighlightColor = Color.white;
+    private bool hasDefaultHighlightColor;
+    private static readonly Color FusionHighlightColor = new Color(1f, 0.85f, 0.2f, 0.85f);
+
+    public void ToggleHighlight(bool show, bool isFusion = false)
     {
-        if (highlightRenderer != null)
-            highlightRenderer.gameObject.SetActive(show);
+        if (highlightRenderer == null) return;
+        if (!hasDefaultHighlightColor)
+        {
+            defaultHighlightColor = highlightRenderer.color;
+            hasDefaultHighlightColor = true;
+        }
+        highlightRenderer.color = isFusion ? FusionHighlightColor : defaultHighlightColor;
+        highlightRenderer.gameObject.SetActive(show);
     }
 }

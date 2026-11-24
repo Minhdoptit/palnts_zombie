@@ -97,7 +97,8 @@ public class DragController : Singleton<DragController>
             case ToolType.None:
                 PlantManager.Instance.EndDrag();
                 break;
-            case ToolType.Glove | ToolType.Shovel:
+            case ToolType.Glove:
+            case ToolType.Shovel:
                 ToolManager.Instance.EndDrag();
                 break;
         }
