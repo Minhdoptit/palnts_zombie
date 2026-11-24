@@ -37,6 +37,7 @@ public class ZombiePreviewManager : Singleton<ZombiePreviewManager>
             var pos = centerPoint.position + new Vector3( Random.Range(-offsetRange.x, offsetRange.x), y, 0f );
 
             var zombie = PoolManager.Instance.GetZombie<ZombieBase>(previews[i], pos, Quaternion.identity);
+            if (zombie == null) continue;
             zombie.SetGhostZombie(true);
             zombie.AnimController.PlayIdle();
             activeZombies.Add((previews[i], zombie));

@@ -54,7 +54,8 @@ public class WinCupController : MonoBehaviour, IPointerClickHandler
 
     private IEnumerator PlayWinAndExit()
     {
-        spineAnim.AnimationState.SetAnimation(0, AnimEvents.ANIM_ANIMATION, true);
+        if (spineAnim != null && spineAnim.AnimationState != null)
+            spineAnim.AnimationState.SetAnimation(0, AnimEvents.ANIM_ANIMATION, true);
         yield return new WaitForSecondsRealtime(exitDelay);
         GameFlowManager.Instance?.OnWinChanged();
     }

@@ -32,6 +32,16 @@ public class Sunflower : PlantBase
 
     private void OnSpineComplete(TrackEntry trackEntry)
     {
+        if (!IsGhost && skeletonAnim.Skeleton.Data.FindAnimation(AnimEvents.ANIM_SPECIAL) == null)
+        {
+            if (currentLoop <= 0)
+            {
+                currentLoop = loopCount;
+                var sun = PoolManager.Instance.Get<Sun>(sunKey, specialTransform.position, Quaternion.identity);
+                sun.InitCurved(GetGroundPosition());
+                return;
+            }
+        }
         PlaySpecial();
     }
 

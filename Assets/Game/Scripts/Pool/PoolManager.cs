@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Spine.Unity;
 using UnityEngine;
 
 public class PoolManager : Singleton<PoolManager>
@@ -37,6 +38,7 @@ public class PoolManager : Singleton<PoolManager>
     protected override void Awake()
     {
         base.Awake();
+        RegisterSpineFallback();
 
         foreach (var e in projectileEntries) AddPool(e);
         foreach (var e in splatEntries) AddPool(e);
@@ -45,6 +47,50 @@ public class PoolManager : Singleton<PoolManager>
         foreach (var e in sunEntries) AddPool(e);
         foreach (var e in zombieEntries) ZombieAddPool(e);
         foreach (var e in vfxEntries) ZombieAddPool(e);
+    }
+
+    private void RegisterSpineFallback()
+    {
+        SkeletonDataAsset plantFallback = FindSkeletonData(plantEntries, PoolKey.Peashooter);
+        SkeletonDataAsset effectFallback = FindSkeletonData(plantEffectEntries, PoolKey.StormFreeze);
+        SkeletonDataAsset zombieFallback = FindZombieSkeletonData(zombieEntries, ZombiePoolKey.BasicZombie);
+
+        SkeletonRenderer.FallbackSkeletonDataResolver = go =>
+        {
+            if (go.GetComponent<PlantBase>() != null) return plantFallback;
+            if (go.GetComponent<ZombieBase>() != null) return zombieFallback;
+            return effectFallback != null ? effectFallback : plantFallback;
+        };
+    }
+
+    private static SkeletonDataAsset FindSkeletonData(PoolEntry[] entries, PoolKey preferredKey)
+    {
+        SkeletonDataAsset firstValid = null;
+        if (entries == null) return null;
+        foreach (var e in entries)
+        {
+            if (e.prefab == null) continue;
+            var sa = e.prefab.GetComponent<SkeletonAnimation>();
+            if (sa == null || sa.skeletonDataAsset == null) continue;
+            if (e.key == preferredKey) return sa.skeletonDataAsset;
+            if (firstValid == null) firstValid = sa.skeletonDataAsset;
+        }
+        return firstValid;
+    }
+
+    private static SkeletonDataAsset FindZombieSkeletonData(ZombiePoolEntry[] entries, ZombiePoolKey preferredKey)
+    {
+        SkeletonDataAsset firstValid = null;
+        if (entries == null) return null;
+        foreach (var e in entries)
+        {
+            if (e.prefab == null) continue;
+            var sa = e.prefab.GetComponent<SkeletonAnimation>();
+            if (sa == null || sa.skeletonDataAsset == null) continue;
+            if (e.key == preferredKey) return sa.skeletonDataAsset;
+            if (firstValid == null) firstValid = sa.skeletonDataAsset;
+        }
+        return firstValid;
     }
 
     private void AddPool(PoolEntry e)

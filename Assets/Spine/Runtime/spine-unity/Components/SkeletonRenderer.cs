@@ -449,6 +449,8 @@ namespace Spine.Unity {
 			meshGenerator.EnsureVertexCapacity(minimumVertexCount);
 		}
 
+		public static System.Func<GameObject, SkeletonDataAsset> FallbackSkeletonDataResolver;
+
 		/// <summary>
 		/// Initialize this component. Attempts to load the SkeletonData and creates the internal Skeleton object and buffers.</summary>
 		/// <param name="overwrite">If set to <c>true</c>, it will overwrite internal objects if they were already generated. Otherwise, the initialized component will ignore subsequent calls to initialize.</param>
@@ -469,6 +471,9 @@ namespace Spine.Unity {
 				skeleton = null;
 				valid = false;
 			}
+
+			if (skeletonDataAsset == null && Application.isPlaying && FallbackSkeletonDataResolver != null)
+				skeletonDataAsset = FallbackSkeletonDataResolver(gameObject);
 
 			if (skeletonDataAsset == null)
 				return;

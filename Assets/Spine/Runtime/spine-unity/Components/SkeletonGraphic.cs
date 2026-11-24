@@ -813,7 +813,10 @@ namespace Spine.Unity {
 			if (BuildUtilities.IsInSkeletonAssetBuildPreProcessing)
 				return;
 #endif
-			if (this.skeletonDataAsset == null) return;
+			if (this.skeletonDataAsset == null) {
+				if (Application.isPlaying && canvasRenderer != null) canvasRenderer.SetAlpha(0f);
+				return;
+			}
 			SkeletonData skeletonData = this.skeletonDataAsset.GetSkeletonData(false);
 			if (skeletonData == null) return;
 

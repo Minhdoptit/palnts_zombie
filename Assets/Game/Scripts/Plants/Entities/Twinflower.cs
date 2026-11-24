@@ -33,6 +33,19 @@ public class Twinflower : PlantBase
 
     private void OnSpineComplete(TrackEntry trackEntry)
     {
+        if (!IsGhost && skeletonAnim.Skeleton.Data.FindAnimation(AnimEvents.ANIM_SPECIAL) == null)
+        {
+            if (currentLoop <= 0)
+            {
+                currentLoop = loopCount;
+                var sun1 = PoolManager.Instance.Get<Sun>(sunKey, specialTransform1.position, Quaternion.identity);
+                sun1.InitCurved(GetGroundPosition());
+
+                var sun2 = PoolManager.Instance.Get<Sun>(sunKey, specialTransform2.position, Quaternion.identity);
+                sun2.InitCurved(GetGroundPosition());
+                return;
+            }
+        }
         PlaySpecial();
     }
 
